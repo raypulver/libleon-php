@@ -24,6 +24,7 @@ leon_encoder_t *encoder_ctor() {
 void encoder_dtor(leon_encoder_t *p) {
   string_index_dtor(p->string_index);
   object_layout_index_dtor(p->object_layout_index);
+  smart_str_free(p->buffer);
   efree(p);
 }
 

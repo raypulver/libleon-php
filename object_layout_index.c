@@ -5,20 +5,22 @@ object_layout_index_t *object_layout_index_ctor() {
   object_layout_index_t *ret = (object_layout_index_t *) emalloc(sizeof(object_layout_index_t));
   ret->index = (oli_entry **) ecalloc(10, sizeof(oli_entry *));
   ret->len = 0;
+  ret->a = 10;
   return ret;
 }
 
 void object_layout_index_dtor(object_layout_index_t *p_oli) {
-  for (size_t i = 0; i < sizeof(p_oli->index)/sizeof(oli_entry *); ++i) {
-    if (i < p_oli->len) oli_entry_dtor(p_oli->index[i]);
+  for (size_t i = 0; i < p_oli->len; ++i) {
+    oli_entry_dtor(p_oli->index[i]);
   }
   efree(p_oli->index);
   efree(p_oli);
 }
 
 void object_layout_index_push(object_layout_index_t *p_oli, oli_entry *entry) {
-  if (sizeof(p_oli->index)/sizeof(oli_entry *) < p_oli->len + 1) {
-    p_oli->index = (oli_entry **) realloc(p_oli->index, sizeof(p_oli->index) * 2);
+  if (p_oli->a < p_oli->len + 1) {
+    p_oli->a *= 2;
+    p_oli->index = (oli_entry **) realloc(p_oli->index, sizeof(oli_entry *) * p_oli->a);
   }
   p_oli->index[p_oli->len] = entry;
   ++p_oli->len;
@@ -28,6 +30,7 @@ oli_entry *oli_entry_ctor() {
   oli_entry *ret = (oli_entry *) emalloc(sizeof(oli_entry));
   ret->entries = (long *) ecalloc(10, sizeof(long));
   ret->len = 0;
+  ret->a = 10;
   return ret;
 }
 
@@ -38,8 +41,9 @@ void oli_entry_dtor(oli_entry *p_oli_entry) {
 
 
 void oli_entry_push(oli_entry *p_entry, long i) {
-  if (sizeof(p_entry->entries)/sizeof(long) < p_entry->len + 1) {
-    p_entry->entries = (long *) erealloc(p_entry->entries, sizeof(p_entry->entries) * 10);
+  if (p_entry->a < p_entry->len + 1) {
+    p_entry->a *= 2;
+    p_entry->entries = (long *) erealloc(p_entry->entries, sizeof(long)*p_entry->a);
   }
   p_entry->entries[p_entry->len] = i;
   ++p_entry->len;

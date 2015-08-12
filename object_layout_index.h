@@ -4,11 +4,13 @@
 typedef struct {
   long *entries;
   size_t len;
+  size_t a;
 } oli_entry;
 
 typedef struct {
   oli_entry **index;
   size_t len;
+  size_t a;
 } object_layout_index_t;
 
 object_layout_index_t *object_layout_index_ctor();

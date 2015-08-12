@@ -125,20 +125,17 @@ double read_double(leon_parser_t *p, unsigned char t) {
 }
 zend_string *read_string(leon_parser_t *p) {
   long len = read_varint(p, read_uint8(p));
-  char *buf = (char *) emalloc(sizeof(char)*len + 1);
-  memcpy(buf, p->payload + p->i, sizeof(buf) - 1);
-  buf[len] = 0;
-  zval *val = (zval *) emalloc(sizeof(zval));
-  ZVAL_STRINGL(val, buf, len);
+  char *buf = (char *) emalloc(sizeof(char)*len);
+  memcpy(buf, p->payload + p->i, len);
+  zend_string *val = zend_string_init(buf, len, 0);
   p->i += len;
   efree(buf);
-  return Z_STR_P(val);
+  return val;
 }
 zval *read_string_as_zval(leon_parser_t *p) {
   long len = read_varint(p, read_uint8(p));
-  char *buf = (char *) emalloc(sizeof(char)*len + 1);
-  memcpy(buf, p->payload + p->i, sizeof(buf) - 1);
-  buf[len] = 0;
+  char *buf = (char *) emalloc(sizeof(char)*len);
+  memcpy(buf, p->payload + p->i, len);
   zval *val = (zval *) emalloc(sizeof(zval));
   ZVAL_STRINGL(val, buf, len);
   p->i += len;

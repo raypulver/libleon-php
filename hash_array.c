@@ -4,6 +4,7 @@
 hash_array_t *hash_array_ctor() {
   hash_array_t *ret = (hash_array_t *) emalloc(sizeof(hash_array_t));
   ret->index = (hash_entry **) ecalloc(10, sizeof(hash_entry *));
+  ret->a = 10;
   ret->len = 0;
   return ret;
 }
@@ -17,8 +18,9 @@ void hash_array_dtor(hash_array_t *p) {
 }
 
 void hash_array_push(hash_array_t *p, hash_entry *e) {
-  if (sizeof(p->index)/sizeof(hash_entry *) < p->len + 1) {
-    p->index = (hash_entry **) erealloc(p->index, sizeof(p->index)*2);
+  if (p->a < p->len + 1) {
+    p->a *= 2;
+    p->index = (hash_entry **) erealloc(p->index, sizeof(hash_entry *)*p->a);
   }
   p->index[p->len] = e;
   p->len++;

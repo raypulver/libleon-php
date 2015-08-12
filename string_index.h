@@ -8,6 +8,7 @@
 typedef struct {
   zend_string **index;
   size_t len;
+  size_t a;
 } string_index_t;
 
 string_index_t *string_index_ctor();

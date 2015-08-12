@@ -11,6 +11,7 @@ typedef struct {
 typedef struct {
   hash_entry **index;
   size_t len;
+  size_t a;
 } hash_array_t;
 
 hash_array_t *hash_array_ctor();
