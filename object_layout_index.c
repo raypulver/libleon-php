@@ -71,3 +71,7 @@ int object_layout_index_find(object_layout_index_t *p_oli, oli_entry *entry) {
   }
   return -1;
 }
+
+void oli_entry_sort(oli_entry *p_entry) {
+  qsort(p_entry->entries, p_entry->len, sizeof(long), &compare);
+}

@@ -23,9 +23,9 @@ void parser_dtor(leon_parser_t *p);
 void parse_string_index(leon_parser_t *p);
 void parse_object_layout_index(leon_parser_t *p);
 unsigned char read_uint8(leon_parser_t *p);
-zval parse_value(leon_parser_t *p, unsigned char type);
-zval parse_value_with_spec(leon_parser_t *p, zval *spec);
-zval read_string_as_zval(leon_parser_t *);
+void parse_value(leon_parser_t *p, unsigned char type, zval *output);
+void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output);
+void read_string_as_zval(leon_parser_t *, zval *output);
 zend_string *read_string(leon_parser_t *p);
 
 #endif

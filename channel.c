@@ -58,6 +58,8 @@ void php_leon_channel_encode(zval *return_value, zval *spec, zval *payload) {
 void php_leon_channel_decode(zval *return_value, zval *spec, char *payload, size_t len) {
   leon_parser_t *parser = parser_ctor(payload, len);
   parser->string_index_type = LEON_EMPTY;
-  *return_value = parse_value_with_spec(parser, spec);
+  zval ret;
+  parse_value_with_spec(parser, spec, &ret);
+  *return_value = ret;
   parser_dtor(parser);
 }

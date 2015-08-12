@@ -9,7 +9,7 @@
 zend_class_entry *string_buffer_ce;
 zend_object_handlers string_buffer_object_handlers;
 
-static inline smart_str *smart_str_ctor() {
+static smart_str *smart_str_ctor() {
   smart_str *ret = (smart_str *) ecalloc(1, sizeof(smart_str));
   ret->a = 0;
   ret->s = zend_string_init("", 0, 0);

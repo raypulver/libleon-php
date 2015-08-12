@@ -127,7 +127,7 @@ PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len)
         leon_parser_t *parser = parser_ctor(payload, len);
         parse_string_index(parser);
         parse_object_layout_index(parser);
-        *return_value = parse_value(parser, read_uint8(parser));
+        parse_value(parser, read_uint8(parser), return_value);
         parser_dtor(parser);
 } 
 
