@@ -21,6 +21,9 @@ int object_layout_index_find(object_layout_index_t *p_oli, oli_entry *entry);
 oli_entry *oli_entry_ctor();
 void oli_entry_dtor(oli_entry *p_oli_entry);
 void oli_entry_push(oli_entry *p_oli_entry, long i);
-void oli_entry_sort(oli_entry *p_oli_entry);
+int compare(const void *a, const void *b);
+void zend_always_inline oli_entry_sort(oli_entry *p_entry) {
+  qsort(p_entry->entries, p_entry->len, sizeof(long), &compare);
+}
 
 #endif

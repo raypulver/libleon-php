@@ -200,7 +200,7 @@ void write_object_layout_index(leon_encoder_t *encoder, zval *payload, int depth
   return;
 }
 
-void write_zstr_index(leon_encoder_t *encoder, zend_string *str) {
+void zend_always_inline write_zstr_index(leon_encoder_t *encoder, zend_string *str) {
   int idx = string_index_find(encoder->string_index, str);
   write_long(encoder, (long) idx, encoder->string_index_type);
 }

@@ -49,14 +49,10 @@ void oli_entry_push(oli_entry *p_entry, long i) {
   ++p_entry->len;
 }
 
-static int compare(const void *a, const void *b) {
+int compare(const void *a, const void *b) {
   if (*((long*) a) < *((long*) b)) return -1;
   else if (*((long *) a) == *((long *) b)) return 0;
   else return 1;
-}
-
-void oli_entry_sort(oli_entry *p_entry) {
-  qsort(p_entry->entries, p_entry->len, sizeof(long), &compare);
 }
 
 int object_layout_index_find(object_layout_index_t *p_oli, oli_entry *entry) {

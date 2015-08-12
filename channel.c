@@ -26,6 +26,7 @@ PHP_METHOD(Channel, encode) {
   HashTable *ht = Z_OBJ_HT_P(this)->get_properties(this);
   zend_string *sp = zend_string_init("spec", sizeof("spec") - 1, 0);
   zval *spec = zend_hash_find(ht, sp);
+  zend_string_release(sp);
   php_leon_channel_encode(return_value, spec, payload);
 }
 PHP_METHOD(Channel, decode) {
@@ -38,6 +39,7 @@ PHP_METHOD(Channel, decode) {
   HashTable *ht = Z_OBJ_HT_P(this)->get_properties(this);
   zend_string *sp = zend_string_init("spec", sizeof("spec") - 1, 0);
   zval *spec = zend_hash_find(ht, sp);
+  zend_string_release(sp);
   php_leon_channel_decode(return_value, spec, payload, len);
 }
 
@@ -56,6 +58,6 @@ void php_leon_channel_encode(zval *return_value, zval *spec, zval *payload) {
 void php_leon_channel_decode(zval *return_value, zval *spec, char *payload, size_t len) {
   leon_parser_t *parser = parser_ctor(payload, len);
   parser->string_index_type = LEON_EMPTY;
-  *return_value = *parse_value_with_spec(parser, spec);
+  *return_value = parse_value_with_spec(parser, spec);
   parser_dtor(parser);
 }
