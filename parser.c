@@ -27,7 +27,6 @@ leon_parser_t *parser_ctor(char *payload, size_t len) {
 void parser_dtor(leon_parser_t *p) {
   string_index_dtor(p->string_index);
   object_layout_index_dtor(p->object_layout_index);
-  efree(p->payload);
   efree(p);
 }
 
@@ -228,7 +227,7 @@ zval *parse_value_with_spec(leon_parser_t *p, zval *spec) {
       break;
   }
   return ret;
-}     
+}
 zval *parse_value(leon_parser_t *p, unsigned char type) {
   zval *ret = (zval *) emalloc(sizeof(zval));
   zend_string *buf;
@@ -299,7 +298,8 @@ zval *parse_value(leon_parser_t *p, unsigned char type) {
       break;
     case LEON_DATE:
       object_init_ex(ret, date_ce);
-      add_property_long(ret, "timestamp", (long) read_double(p, LEON_DOUBLE));
+      d = read_double(p, LEON_DOUBLE);
+      add_property_long(ret, "timestamp", (long) d);
       break;
     case LEON_REGEXP:
       object_init_ex(ret, regexp_ce);

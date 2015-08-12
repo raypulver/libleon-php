@@ -257,7 +257,6 @@ void write_long(leon_encoder_t *encoder, long value, unsigned char type) {
       break;
   }
 }
-
 void write_double(leon_encoder_t *encoder, double d, unsigned char type) {
   union to_float f_to_b;
   union to_double d_to_b;
@@ -396,6 +395,8 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
   zend_string *prop;
   string_buffer_t *sb;
   int i, layout_idx;
+  long l;
+  double d;
   switch (type) {
     case LEON_CONSTANT:
       write_data(encoder, &((zend_constant *) Z_PTR_P(payload))->value, implicit, LEON_EMPTY);
@@ -511,7 +512,9 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
       ht = Z_OBJ_HT_P(payload)->get_properties(payload);
       key = zend_string_init("timestamp", sizeof("timestamp") - 1, 0);
       data = zend_hash_find(ht, key);
-      write_double(encoder, (double) Z_LVAL_P(payload), LEON_DOUBLE);
+      l = Z_LVAL_P(data);
+      d = (double) l;
+      write_double(encoder, d, LEON_DOUBLE);
       break;
     case LEON_BUFFER:
       sb = get_string_buffer(Z_OBJ_P(payload));

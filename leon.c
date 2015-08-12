@@ -122,7 +122,6 @@ PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload) {
   ZVAL_STRINGL(return_value, encoder->buffer->s->val, encoder->buffer->s->len);
   encoder_dtor(encoder);
 }
-void woop() {}
 PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len)
 {
         leon_parser_t *parser = parser_ctor(payload, len);
@@ -130,7 +129,6 @@ PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len)
         parse_object_layout_index(parser);
         *return_value = *parse_value(parser, read_uint8(parser));
         parser_dtor(parser);
-        woop();
 } 
 
 PHP_FUNCTION(leon_encode)

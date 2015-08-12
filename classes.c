@@ -1,6 +1,5 @@
 #include "php.h"
 #include "classes.h"
-
 PHP_METHOD(Date, __construct) {
   long timestamp;
   if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &timestamp) == FAILURE) {

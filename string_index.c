@@ -8,10 +8,10 @@ string_index_t *string_index_ctor() {
   return ret;
 }
 void string_index_dtor(string_index_t *p) {
-  int num_strings = sizeof(p->index)/sizeof(zend_string*);
+  /*int num_strings = sizeof(p->index)/sizeof(zend_string*);
   for (int i = 0; i < num_strings; ++i) {
     efree(p->index[i]);
-  }
+  }*/
   efree(p->index);
   efree(p);
 }
