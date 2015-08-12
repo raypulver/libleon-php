@@ -88,6 +88,7 @@ void write_string_index(leon_encoder_t *encoder, zval *payload, int depth) {
       write_string_index(encoder, Z_INDIRECT_P(payload), depth + 1);
       break;
   }
+  unsigned int i;
   if (!depth) {
     if (!encoder->string_index->len) {
       smart_str_appendc(encoder->buffer, LEON_EMPTY);
@@ -96,7 +97,7 @@ void write_string_index(leon_encoder_t *encoder, zval *payload, int depth) {
     encoder->string_index_type = integer_type_check((long) encoder->string_index->len);
     smart_str_appendc(encoder->buffer, encoder->string_index_type);
     write_long(encoder, (long) encoder->string_index->len, encoder->string_index_type);
-    for (unsigned int i = 0; i < encoder->string_index->len; ++i) {
+    for (i = 0; i < encoder->string_index->len; ++i) {
       write_zstr(encoder, encoder->string_index->index[i]);
     }
   }
@@ -179,6 +180,7 @@ void write_object_layout_index(leon_encoder_t *encoder, zval *payload, int depth
     default:
       break;
   }
+  size_t i, j;
   if (!depth) {
     if (!encoder->object_layout_index->len) {
       smart_str_appendc(encoder->buffer, LEON_EMPTY);
@@ -188,11 +190,11 @@ void write_object_layout_index(leon_encoder_t *encoder, zval *payload, int depth
     encoder->object_layout_type = type;
     smart_str_appendc(encoder->buffer, type);
     write_long(encoder, (long) encoder->object_layout_index->len, type);
-    for (size_t i = 0; i < encoder->object_layout_index->len; ++i) {
+    for (i = 0; i < encoder->object_layout_index->len; ++i) {
       type = integer_type_check(encoder->object_layout_index->index[i]->len);
       smart_str_appendc(encoder->buffer, type);
       write_long(encoder, (long) encoder->object_layout_index->index[i]->len, type);
-      for (size_t j = 0; j < encoder->object_layout_index->index[i]->len; ++j) {
+      for (j = 0; j < encoder->object_layout_index->index[i]->len; ++j) {
         write_long(encoder, encoder->object_layout_index->index[i]->entries[j], encoder->string_index_type);
       }
     }
@@ -209,7 +211,8 @@ void write_zstr(leon_encoder_t *encoder, zend_string *str) {
   unsigned char len_type = integer_type_check((long) ZSTR_LEN(str));
   smart_str_appendc(encoder->buffer, len_type);
   write_long(encoder, (long) ZSTR_LEN(str), len_type);
-  for (unsigned int i = 0; i < ZSTR_LEN(str); ++i) {
+  unsigned int i;
+  for (i = 0; i < ZSTR_LEN(str); ++i) {
     smart_str_appendc(encoder->buffer, ZSTR_VAL(str)[i]);
   }
 }
@@ -220,6 +223,7 @@ void write_long(leon_encoder_t *encoder, long value, unsigned char type) {
   union short_to_bytes s_to_b;
   union unsigned_int_to_bytes u_i_to_b;
   union int_to_bytes i_to_b;
+  unsigned int i;
   switch (type) {
     case LEON_UNSIGNED_CHAR:
       smart_str_appendc(encoder->buffer, (unsigned char) value);
@@ -231,28 +235,28 @@ void write_long(leon_encoder_t *encoder, long value, unsigned char type) {
     case LEON_UNSIGNED_SHORT:
       u_s_to_b.value = (unsigned short) value;
       if (!encoder->endianness) swizzle(u_s_to_b.bytes, 2);
-      for (unsigned int i = 0; i < 2; ++i) {
+      for (i = 0; i < 2; ++i) {
         smart_str_appendc(encoder->buffer, u_s_to_b.bytes[i]);
       }
       break;
     case LEON_SHORT:
       s_to_b.value = (short) value;
       if (!encoder->endianness) swizzle(s_to_b.bytes, 2);
-      for (unsigned int i = 0; i < 2; ++i) {
+      for (i = 0; i < 2; ++i) {
         smart_str_appendc(encoder->buffer, s_to_b.bytes[i]);
       }
       break;
     case LEON_UNSIGNED_INT:
       u_i_to_b.value = (unsigned int) value;
       if (!encoder->endianness) swizzle(u_i_to_b.bytes, 4);
-      for (unsigned int i = 0; i < 4; ++i) {
+      for (i = 0; i < 4; ++i) {
         smart_str_appendc(encoder->buffer, u_i_to_b.bytes[i]);
       }
       break;
     case LEON_INT:
       i_to_b.value = (int) value;
       if (!encoder->endianness) swizzle(i_to_b.bytes, 4);
-      for (unsigned int i = 0; i < 4; ++i) {
+      for (i = 0; i < 4; ++i) {
         smart_str_appendc(encoder->buffer, i_to_b.bytes[i]);
       }
       break;
@@ -261,16 +265,17 @@ void write_long(leon_encoder_t *encoder, long value, unsigned char type) {
 void write_double(leon_encoder_t *encoder, double d, unsigned char type) {
   union to_float f_to_b;
   union to_double d_to_b;
+  unsigned int i;
   if (type == LEON_FLOAT) {
     f_to_b.val = (float) d;
     if (!encoder->endianness) swizzle(f_to_b.bytes, 4);
-    for (unsigned int i = 0; i < 4; ++i) {
+    for (i = 0; i < 4; ++i) {
       smart_str_appendc(encoder->buffer, f_to_b.bytes[i]);
     }
   } else {
     d_to_b.val = d;
     if (!encoder->endianness) swizzle(d_to_b.bytes, 8);
-    for (unsigned int i = 0; i < 8; ++i) {
+    for (i = 0; i < 8; ++i) {
       smart_str_appendc(encoder->buffer, d_to_b.bytes[i]);
     }
   }
@@ -341,7 +346,7 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
           hash_array_push(ha, he);
         } ZEND_HASH_FOREACH_END();
         hash_array_sort(ha);
-        for (int i = 0; i < ha->len; ++i) {
+        for (i = 0; i < ha->len; ++i) {
           zv_dest = zend_hash_find(ht, ha->index[i]->key);
           write_data_with_spec(encoder, ha->index[i]->value, zv_dest);
         }
@@ -361,7 +366,7 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
           hash_array_push(ha, he);
         } ZEND_HASH_FOREACH_END();
         hash_array_sort(ha);
-        for (int i = 0; i < ha->len; ++i) {
+        for (i = 0; i < ha->len; ++i) {
           zv_dest = zend_hash_find(ht, ha->index[i]->key);
           write_data_with_spec(encoder, ha->index[i]->value, zv_dest);
         }
@@ -374,7 +379,8 @@ static void write_string(leon_encoder_t *encoder, char *str, size_t len) {
   unsigned char type = integer_type_check((long) len);
   smart_str_appendc(encoder->buffer, type);
   write_long(encoder, (long) len, type);
-  for (size_t i = 0; i < len; ++i) {
+  size_t i;
+  for (i = 0; i < len; ++i) {
     smart_str_appendc(encoder->buffer, str[i]);
   }
 }
@@ -462,7 +468,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
       oli_entry_sort(entry);
       layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
       if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
-      for (int i = 0; i < entry->len; ++i) {
+      for (i = 0; i < entry->len; ++i) {
         zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
         write_data(encoder, zv_dest, implicit, LEON_EMPTY);
       }
@@ -494,7 +500,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
       oli_entry_sort(entry);
       layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
       if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
-      for (int i = 0; i < entry->len; ++i) {
+      for (i = 0; i < entry->len; ++i) {
         zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
         write_data(encoder, zv_dest, implicit, LEON_EMPTY);
       }

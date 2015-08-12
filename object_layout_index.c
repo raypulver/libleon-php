@@ -10,7 +10,8 @@ object_layout_index_t *object_layout_index_ctor() {
 }
 
 void object_layout_index_dtor(object_layout_index_t *p_oli) {
-  for (size_t i = 0; i < p_oli->len; ++i) {
+  size_t i;
+  for (i = 0; i < p_oli->len; ++i) {
     oli_entry_dtor(p_oli->index[i]);
   }
   efree(p_oli->index);
@@ -57,10 +58,11 @@ int compare(const void *a, const void *b) {
 
 int object_layout_index_find(object_layout_index_t *p_oli, oli_entry *entry) {
   int cont;
-  for (size_t i = 0; i < p_oli->len; ++i) {
+  size_t i, j;
+  for (i = 0; i < p_oli->len; ++i) {
     cont = 0;
     if (p_oli->index[i]->len != entry->len) continue;
-    for (size_t j = 0; j < p_oli->index[i]->len; ++j) {
+    for (j = 0; j < p_oli->index[i]->len; ++j) {
       if (p_oli->index[i]->entries[j] != entry->entries[j]) {
         cont = 1;
         break;

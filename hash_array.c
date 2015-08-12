@@ -10,7 +10,8 @@ hash_array_t *hash_array_ctor() {
 }
 
 void hash_array_dtor(hash_array_t *p) {
-  for (size_t i = 0; i < p->len; ++i) {
+  size_t i;
+  for (i = 0; i < p->len; ++i) {
     efree(p->index[i]);
   }
   efree(p->index);

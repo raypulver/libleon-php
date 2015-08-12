@@ -61,6 +61,7 @@ long read_varint(leon_parser_t *p, unsigned char type) {
   union to_short s;
   union to_unsigned_int u_i;
   union to_int i;
+  unsigned int j;
   switch (type) {
     case LEON_UNSIGNED_CHAR:
       return (long) read_uint8(p);
@@ -85,7 +86,7 @@ long read_varint(leon_parser_t *p, unsigned char type) {
       break;
     case LEON_UNSIGNED_INT: 
       p->i += 4;
-      for (unsigned int j = 0; j < 4; ++j) {
+      for (j = 0; j < 4; ++j) {
         u_i.bytes[j] = (unsigned char) p->payload[p->i - (4 - j)];
       }
       if (!p->endianness) swizzle(u_i.bytes, 4);
@@ -93,7 +94,7 @@ long read_varint(leon_parser_t *p, unsigned char type) {
       break;
     case LEON_INT:
       p->i += 4;
-      for (unsigned int j = 0; j < 4; ++j) {
+      for (j = 0; j < 4; ++j) {
         i.bytes[j] = (unsigned char) p->payload[p->i - (4 - j)];
       }
       if (!p->endianness) swizzle(i.bytes, 4);
@@ -104,10 +105,11 @@ long read_varint(leon_parser_t *p, unsigned char type) {
 double read_double(leon_parser_t *p, unsigned char t) {
   union to_float f;
   union to_double td;
+  unsigned int i;
   switch (t) {
     case LEON_FLOAT:
       p->i += 4;
-      for (unsigned int i = 0; i < 4; ++i) {
+      for (i = 0; i < 4; ++i) {
         f.bytes[i] = (unsigned char) p->payload[p->i - (4 - i)];
       }
       if (!p->endianness) swizzle(f.bytes, 4);
@@ -115,7 +117,7 @@ double read_double(leon_parser_t *p, unsigned char t) {
       break;
     case LEON_DOUBLE:
       p->i += 8;
-      for (unsigned int i = 0; i < 8; ++i) {
+      for (i = 0; i < 8; ++i) {
         td.bytes[i] = (unsigned char) p->payload[p->i - (8 - i)];
       }
       if (!p->endianness) swizzle(td.bytes, 8);
@@ -153,20 +155,19 @@ void parse_object_layout_index(leon_parser_t *p) {
   if (p->string_index_type == 0xFF) return;
   p->object_layout_type = read_uint8(p);
   if (p->object_layout_type == 0xFF) return;
-  long layout_count = read_varint(p, p->object_layout_type);
-  for (long i = 0; i < layout_count; ++i) {
+  long layout_count = read_varint(p, p->object_layout_type), i, j;
+  for (i = 0; i < layout_count; ++i) {
     oli_entry *entry = oli_entry_ctor();
     long prop_count = read_varint(p, read_uint8(p));
-    for (long j = 0; j < prop_count; ++j) {
+    for (j = 0; j < prop_count; ++j) {
       oli_entry_push(entry, read_varint(p, p->string_index_type));;
     }
     object_layout_index_push(p->object_layout_index, entry);
   }
 }
-void woop() {}
 void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
   unsigned char type = type_check(spec);
-  int i;
+  long i;
   long len;
   HashTable *ht;
   hash_entry *he;
@@ -198,7 +199,7 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
       array_init(output);
       type = read_uint8(p);
       len = read_varint(p, type);
-      for (long i = 0; i < len; ++i) {
+      for (i = 0; i < len; ++i) {
         zval element;
         parse_value_with_spec(p, spec, &element);
         add_index_zval(output, (unsigned int) i, &element);
@@ -215,10 +216,9 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
         hash_array_push(ha, he);
       } ZEND_HASH_FOREACH_END();
       hash_array_sort(ha);
-      for (long i = 0; i < ha->len; ++i) {
+      for (i = 0; i < ha->len; ++i) {
         zval element;
         parse_value_with_spec(p, ha->index[i]->value, &element);
-        woop();
         zend_hash_update(Z_ARRVAL_P(output), ha->index[i]->key, &element);
       }
       hash_array_dtor(ha);
@@ -229,7 +229,7 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
   zend_string *buf;
   string_buffer_t *sb;
   zval *data;
-  long l;
+  long l, i, len;
   double d;
   switch (type) {
     case LEON_UNSIGNED_CHAR:
@@ -277,8 +277,8 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       break;
     case LEON_ARRAY:
       array_init(output);
-      long len = read_varint(p, read_uint8(p));
-      for (long i = 0; i < len; ++i) {
+      len = read_varint(p, read_uint8(p));
+      for (i = 0; i < len; ++i) {
         zval element;
         parse_value(p, read_uint8(p), &element);
         add_index_zval(output, (unsigned int) i, &element);
@@ -288,7 +288,7 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       array_init(output);
       long layout_idx = read_varint(p, p->object_layout_type);
       oli_entry *entry = p->object_layout_index->index[layout_idx];
-      for (long i = 0; i < entry->len; ++i) {
+      for (i = 0; i < entry->len; ++i) {
         zval element;
         parse_value(p, read_uint8(p), &element);
         add_assoc_zval(output, p->string_index->index[entry->entries[i]]->val, &element);

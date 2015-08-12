@@ -39,8 +39,9 @@ zend_object *string_buffer_create(zend_class_entry *ce TSRMLS_DC) {
 }
 
 void write_bytes(string_buffer_t *sb, unsigned char *bytes, size_t len, long offset, int endianness) {
+  size_t i;
   if (sb->endianness != endianness) swizzle(bytes, len); 
-  for (size_t i = 0; i < len; ++i) {
+  for (i = 0; i < len; ++i) {
     if (offset + i == sb->buffer->s->len) {
       smart_str_appendc(sb->buffer, bytes[i]);
     } else {

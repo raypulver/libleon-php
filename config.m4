@@ -17,5 +17,5 @@ PHP_ARG_ENABLE(leon, whether to enable leon support, [  --enable-leon           
 if test "$PHP_LEON" != "no"; then
   AC_DEFINE(HAVE_LEON, 1, [Whether you have leon])
   PHP_SUBST(LEON_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(leon, leon.c encoder.c endianness.c channel.c object_layout_index.c parser.c string_index.c type_check.c hash_array.c classes.c string_buffer.c swizzle.c, $ext_shared,, -funsigned-char -std=c99 -lphp5)
+  PHP_NEW_EXTENSION(leon, leon.c encoder.c endianness.c channel.c object_layout_index.c parser.c string_index.c type_check.c hash_array.c classes.c string_buffer.c swizzle.c, $ext_shared,, -funsigned-char)
 fi

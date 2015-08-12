@@ -32,8 +32,8 @@ zend_string *string_index_get(string_index_t *p, int i) {
   return p->index[i];
 }
 long string_index_find(string_index_t *p, zend_string *str) {
-  long idx = -1;
-  for (long i = 0; i < p->len; ++i) {
+  long idx = -1, i;
+  for (i = 0; i < p->len; ++i) {
     if (!strcmp(p->index[i]->val, str->val)) {
       idx = i;
       break;
