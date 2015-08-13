@@ -136,20 +136,21 @@ zend_string *read_string(leon_parser_t *p) {
 }
 void read_string_as_zval(leon_parser_t *p, zval *val) {
   long len = read_varint(p, read_uint8(p));
-  char *buf = (char *) emalloc(sizeof(char)*len);
-  memcpy(buf, p->payload + p->i, len);
-  ZVAL_STRINGL(val, buf, len);
+  ZVAL_STRINGL(val, p->payload + p->i, len);
   p->i += len;
-  efree(buf);
 } 
 void parse_string_index(leon_parser_t *p) {
   p->string_index_type = read_uint8(p);
-  if (p->string_index_type == 0xFF) return;
+  if (p->string_index_type == 0xFF) {
+    p->state |= 0x1;
+    return;
+  }
   long string_count = read_varint(p, p->string_index_type);
   long i;
   for (i = 0; i < string_count; ++i) {
     string_index_push(p->string_index, read_string(p));
   }
+  p->state |= 0x1;
 }
 void parse_object_layout_index(leon_parser_t *p) {
   if (p->string_index_type == 0xFF) return;
@@ -186,6 +187,7 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
         case LEON_NAN:
         case LEON_INFINITY:
         case LEON_MINUS_INFINITY:
+        case LEON_DYNAMIC:
           parse_value(p, read_uint8(p), output);
           break;
         default:
@@ -247,7 +249,7 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       ZVAL_DOUBLE(output, d);
       break;
     case LEON_STRING:
-      if (p->string_index_type == LEON_EMPTY) {
+      if (!(p->state & 0x1) || p->string_index_type == LEON_EMPTY) {
         read_string_as_zval(p, output);
       } else {
         zend_string *val = p->string_index->index[read_varint(p, p->string_index_type)];
@@ -286,13 +288,24 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       break;
     case LEON_OBJECT:
       array_init(output);
-      long layout_idx = read_varint(p, p->object_layout_type);
-      oli_entry *entry = p->object_layout_index->index[layout_idx];
-      for (i = 0; i < entry->len; ++i) {
-        zval element;
-        parse_value(p, read_uint8(p), &element);
-        add_assoc_zval(output, p->string_index->index[entry->entries[i]]->val, &element);
-      }
+      if (p->state & 0x1) {
+        long layout_idx = read_varint(p, p->object_layout_type);
+        oli_entry *entry = p->object_layout_index->index[layout_idx];
+        for (i = 0; i < entry->len; ++i) {
+          zval element;
+          parse_value(p, read_uint8(p), &element);
+          add_assoc_zval(output, p->string_index->index[entry->entries[i]]->val, &element);
+        }
+      } else {
+        long keys = read_varint(p, read_uint8(p));
+        for (i = 0; i < keys; ++i) {
+          zend_string *key = read_string(p);
+          zval element;
+          parse_value(p, read_uint8(p), &element);
+          add_assoc_zval_ex(output, ZSTR_VAL(key), ZSTR_LEN(key), &element);
+          zend_string_release(key);
+        }
+      } 
       break;
     case LEON_DATE:
       object_init_ex(output, date_ce);

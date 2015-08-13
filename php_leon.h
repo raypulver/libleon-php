@@ -69,7 +69,7 @@ ZEND_TSRMLS_CACHE_EXTERN();
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload);
-PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len);
+PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long options);
+PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long options);
 
 extern zend_function_entry channel_functions[];

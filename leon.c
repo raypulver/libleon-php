@@ -110,23 +110,27 @@ PHP_INI_END()
 /* {{{ proto string confirm_leon_compiled(string arg)
    Return a string to confirm that the module is compiled in */
 
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload) {
+PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long options) {
   leon_encoder_t *encoder = encoder_ctor();
   smart_str buf = {0};
   smart_str_free(&buf);
   smart_str_0(&buf);
   encoder->buffer = &buf;
-  write_string_index(encoder, payload, 0);
-  write_object_layout_index(encoder, payload, 0);
+  if (options & LEON_USE_INDEXING) {
+    write_string_index(encoder, payload, 0);
+    write_object_layout_index(encoder, payload, 0);
+  }
   write_data(encoder, payload, 0, 0xFF);
   ZVAL_STRINGL(return_value, encoder->buffer->s->val, encoder->buffer->s->len);
   encoder_dtor(encoder);
 }
-PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len)
+PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long options)
 {
         leon_parser_t *parser = parser_ctor(payload, len);
-        parse_string_index(parser);
-        parse_object_layout_index(parser);
+        if (options & LEON_USE_INDEXING) {
+          parse_string_index(parser);
+          parse_object_layout_index(parser);
+        }
         parse_value(parser, read_uint8(parser), return_value);
         parser_dtor(parser);
 } 
@@ -134,15 +138,17 @@ PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len)
 PHP_FUNCTION(leon_encode)
 {
         zval *payload;
-        if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &payload) == FAILURE) return;
-        php_leon_encode(return_value, payload);
+        zend_long options = 0;
+        if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|l", &payload, &options) == FAILURE) return;
+        php_leon_encode(return_value, payload, options);
 }
 PHP_FUNCTION(leon_decode)
 {
         char *payload;
         size_t len;
-        if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &payload, &len) == FAILURE) return;
-        php_leon_decode(return_value, payload, len);
+        zend_long options = 0;
+        if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|l", &payload, &len, &options) == FAILURE) return;
+        php_leon_decode(return_value, payload, len, options);
 }
 /* }}} */
 /* The previous line is meant for vim and emacs, so it can correctly fold and
@@ -188,6 +194,8 @@ PHP_MINIT_FUNCTION(leon)
         REGISTER_LONG_CONSTANT("LEON_NAN", LEON_NAN, CONST_CS | CONST_PERSISTENT);
         REGISTER_LONG_CONSTANT("LEON_INFINITY", LEON_INFINITY, CONST_CS | CONST_PERSISTENT);
         REGISTER_LONG_CONSTANT("LEON_MINUS_INFINITY", LEON_MINUS_INFINITY, CONST_CS | CONST_PERSISTENT);
+        REGISTER_LONG_CONSTANT("LEON_DYNAMIC", LEON_DYNAMIC, CONST_CS | CONST_PERSISTENT);
+        REGISTER_LONG_CONSTANT("LEON_USE_INDEXING", LEON_USE_INDEXING, CONST_CS | CONST_PERSISTENT);
         zend_class_entry tmp_channel;
         zend_class_entry tmp_string_buffer;
         zend_class_entry tmp_date;

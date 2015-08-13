@@ -27,6 +27,9 @@
 #define LEON_CONSTANT '\35'
 #define LEON_INFINITY '\31'
 #define LEON_MINUS_INFINITY '\32'
+#define LEON_DYNAMIC '\335'
 #define LEON_EMPTY '\377'
+
+#define LEON_USE_INDEXING '\1'
 
 #endif

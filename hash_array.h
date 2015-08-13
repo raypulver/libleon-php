@@ -5,6 +5,7 @@
 
 typedef struct {
   zend_string *key;
+  zend_ulong hash;
   zval *value;
 } hash_entry;
 

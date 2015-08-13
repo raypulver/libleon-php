@@ -202,7 +202,7 @@ void write_object_layout_index(leon_encoder_t *encoder, zval *payload, int depth
   return;
 }
 
-void zend_always_inline write_zstr_index(leon_encoder_t *encoder, zend_string *str) {
+zend_always_inline void write_zstr_index(leon_encoder_t *encoder, zend_string *str) {
   int idx = string_index_find(encoder->string_index, str);
   write_long(encoder, (long) idx, encoder->string_index_type);
 }
@@ -280,6 +280,47 @@ void write_double(leon_encoder_t *encoder, double d, unsigned char type) {
     }
   }
 }
+/*
+static zval *quick_find(HashTable *ht, zend_ulong h) {
+  Bucket *b, *ar;
+  uint32_t nIndex, idx;
+  ar = ht->arData;
+  nIndex = h | ht->nTableMask;
+  idx = HT_HASH_EX(ar, nIndex);
+  b = HT_HASH_TO_BUCKET_EX(ar, idx);
+  return &b->val;
+/*
+  while (idx != HT_INVALID_IDX) {
+    ZEND_ASSERT(idx < HT_IDX_TO_HASH(ht->nTableSize));
+    b = HT_HASH_TO_BUCKET_EX(ar, idx);
+    if (b->h == h && !b->key) {
+      return &b->val;
+    }
+    idx = Z_NEXT(b->val);
+  }
+  return NULL;
+}*//*
+ZEND_API int ZEND_FASTCALL get_current_key_hash_val(const HashTable *ht, zend_string **str_index, zend_ulong *num_index, zval **val, HashPosition *pos)
+{
+        uint32_t idx = *pos;
+        Bucket *p;
+        if (idx != HT_INVALID_IDX) {
+                p = ht->arData + idx;
+                if (p->key) {
+                        *str_index = p->key;
+                        *num_index = p->h;
+                        *val = &p->val;
+                        return HASH_KEY_IS_STRING;
+                } else {
+                        *val = &p->val;
+                        *num_index = p->h;
+                        return HASH_KEY_IS_LONG;
+                }
+        }
+        return HASH_KEY_NON_EXISTENT;
+}
+*/
+void woop() {}
 void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
   unsigned char type = type_check(spec);
   unsigned char payload_type = type_check(payload);
@@ -294,6 +335,8 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
   zend_string *prop;
   hash_array_t *ha;
   hash_entry *he;
+  HashPosition pos;
+  Bucket *b;
   int i;
   if (payload_type == LEON_INDIRECT) {
     write_data_with_spec(encoder, spec, Z_INDIRECT_P(payload));
@@ -307,7 +350,8 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
       write_data_with_spec(encoder, Z_INDIRECT_P(spec), payload);
       break;
     case LEON_UNSIGNED_CHAR:
-      write_data(encoder, payload, 1, (unsigned char) Z_LVAL_P(spec));
+      if (Z_LVAL_P(spec) == LEON_DYNAMIC) write_data(encoder, payload, 0, 0xFF);
+      else write_data(encoder, payload, 1, (unsigned char) Z_LVAL_P(spec));
       break;
     case LEON_ARRAY:
       spec_ht = Z_ARRVAL_P(spec);
@@ -339,15 +383,17 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
         ht = Z_ARRVAL_P(payload);
         spec_ht = Z_ARRVAL_P(spec);
         ha = hash_array_ctor();
+        zend_hash_internal_pointer_reset_ex(spec_ht, &pos);
         ZEND_HASH_FOREACH_KEY_VAL_IND(spec_ht, index, key, data) {
           he = (hash_entry *) emalloc(sizeof(hash_entry));
           he->key = key;
+          he->hash = index;
           he->value = data;
           hash_array_push(ha, he);
         } ZEND_HASH_FOREACH_END();
         hash_array_sort(ha);
         for (i = 0; i < ha->len; ++i) {
-          zv_dest = zend_hash_find(ht, ha->index[i]->key);
+          zv_dest = zend_hash_find(ht, ha->index[i]->key); 
           write_data_with_spec(encoder, ha->index[i]->value, zv_dest);
         }
         hash_array_dtor(ha);
@@ -461,50 +507,84 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
       break;
     case LEON_OBJECT:
       ht = Z_ARRVAL_P(payload);
-      entry = oli_entry_ctor();
-      ZEND_HASH_FOREACH_KEY_VAL_IND(ht, index, key, data) {
-        oli_entry_push(entry, string_index_find(encoder->string_index, key));
-      } ZEND_HASH_FOREACH_END();
-      oli_entry_sort(entry);
-      layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
-      if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
-      for (i = 0; i < entry->len; ++i) {
-        zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
-        write_data(encoder, zv_dest, implicit, LEON_EMPTY);
+      if (encoder->state & 0x1) {
+        entry = oli_entry_ctor();
+        ZEND_HASH_FOREACH_KEY_VAL_IND(ht, index, key, data) {
+          oli_entry_push(entry, string_index_find(encoder->string_index, key));
+        } ZEND_HASH_FOREACH_END();
+        oli_entry_sort(entry);
+        layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
+        if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
+        for (i = 0; i < entry->len; ++i) {
+          zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
+          write_data(encoder, zv_dest, implicit, LEON_EMPTY);
+        }
+        oli_entry_dtor(entry);
+      } else {
+        i = zend_hash_num_elements(ht);
+        unsigned char type = integer_type_check((long) i);
+        smart_str_appendc(encoder->buffer, type);
+        write_long(encoder, (long) i, type);
+        ZEND_HASH_FOREACH_KEY_VAL_IND(ht, index, key, data) {
+          write_string(encoder, ZSTR_VAL(key), ZSTR_LEN(key));
+          write_data(encoder, data, implicit, LEON_EMPTY);
+        } ZEND_HASH_FOREACH_END();
       }
-      oli_entry_dtor(entry);
       break;
     case LEON_NATIVE_OBJECT:
-      entry = oli_entry_ctor();
       ht = Z_OBJ_HT_P(payload)->get_properties(payload);
       zobj = Z_OBJ_P(payload);
-      if (ht == NULL) {
-        oli_entry_dtor(entry);
-        return;
-      }
-      ZEND_HASH_FOREACH_STR_KEY_VAL_IND(ht, key, data) {
-        if (key) {
-          if (zend_check_property_access(zobj, key) == SUCCESS) {
-            if (ZSTR_VAL(key)[0] == 0) {
-              const char *prop_name, *class_name;
-              size_t prop_len;
-              zend_unmangle_property_name_ex(key, &class_name, &prop_name, &prop_len);
-              prop = zend_string_init(prop_name, prop_len, 0);  
-              oli_entry_push(entry, string_index_find(encoder->string_index, prop));
-            } else {
-              oli_entry_push(entry, string_index_find(encoder->string_index, key));
+      if (encoder->state & 0x1) {
+        entry = oli_entry_ctor();
+        if (ht == NULL) {
+          oli_entry_dtor(entry);
+          return;
+        }
+        ZEND_HASH_FOREACH_STR_KEY_VAL_IND(ht, key, data) {
+          if (key) {
+            if (zend_check_property_access(zobj, key) == SUCCESS) {
+              if (ZSTR_VAL(key)[0] == 0) {
+                const char *prop_name, *class_name;
+                size_t prop_len;
+                zend_unmangle_property_name_ex(key, &class_name, &prop_name, &prop_len);
+                prop = zend_string_init(prop_name, prop_len, 0);  
+                oli_entry_push(entry, string_index_find(encoder->string_index, prop));
+              } else {
+                oli_entry_push(entry, string_index_find(encoder->string_index, key));
+              }
             }
           }
+        } ZEND_HASH_FOREACH_END();
+        oli_entry_sort(entry);
+        layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
+        if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
+        for (i = 0; i < entry->len; ++i) {
+          zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
+          write_data(encoder, zv_dest, implicit, LEON_EMPTY);
         }
-      } ZEND_HASH_FOREACH_END();
-      oli_entry_sort(entry);
-      layout_idx = object_layout_index_find(encoder->object_layout_index, entry);
-      if (!implicit) write_long(encoder, (long) layout_idx, encoder->object_layout_type);
-      for (i = 0; i < entry->len; ++i) {
-        zv_dest = zend_hash_find(ht, encoder->string_index->index[entry->entries[i]]);
-        write_data(encoder, zv_dest, implicit, LEON_EMPTY);
+        oli_entry_dtor(entry);
+      } else {
+        i = zend_hash_num_elements(ht);
+        unsigned char type = integer_type_check((long) i);
+        smart_str_appendc(encoder->buffer, type);
+        write_long(encoder, (long) i, type);
+        ZEND_HASH_FOREACH_STR_KEY_VAL_IND(ht, key, data) {
+          if (key) {
+            if (zend_check_property_access(zobj, key) == SUCCESS) {
+              if (ZSTR_VAL(key)[0] == 0) {
+                const char *prop_name, *class_name;
+                size_t prop_len;
+                zend_unmangle_property_name_ex(key, &class_name, &prop_name, &prop_len);
+                prop = zend_string_init(prop_name, prop_len, 0);  
+                write_zstr(encoder, prop);
+              } else {
+                write_zstr(encoder, key);
+              }
+              write_data(encoder, data, implicit, LEON_EMPTY);
+            }
+          }
+        } ZEND_HASH_FOREACH_END();
       }
-      oli_entry_dtor(entry);
       break;
     case LEON_REGEXP:
       ht = Z_OBJ_HT_P(payload)->get_properties(payload);

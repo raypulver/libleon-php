@@ -42,7 +42,6 @@ PHP_METHOD(Channel, decode) {
   zend_string_release(sp);
   php_leon_channel_decode(return_value, spec, payload, len);
 }
-
 void php_leon_channel_encode(zval *return_value, zval *spec, zval *payload) {
   leon_encoder_t *encoder = encoder_ctor();
   smart_str buf = {0};
