@@ -28,7 +28,6 @@ leon_encoder_t *encoder_ctor() {
 void encoder_dtor(leon_encoder_t *p) {
   string_index_dtor(p->string_index);
   object_layout_index_dtor(p->object_layout_index);
-  smart_str_free(p->buffer);
   efree(p);
 }
 
@@ -574,6 +573,7 @@ void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload) {
         spec_ht = Z_ARRVAL_P(spec);
         ht = Z_OBJ_HT_P(payload)->get_properties(payload);
 #if PHP_API_VERSION <= 20131106
+        ha = hash_array_ctor();
         zend_hash_internal_pointer_reset_ex(spec_ht, &pos);
         for (;; zend_hash_move_forward_ex(spec_ht, &pos)) {
           i = zend_hash_get_current_key_ex(spec_ht, &key, &key_len, &index, 0, &pos);
@@ -756,7 +756,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
           i = zend_hash_get_current_key_ex(ht, &key, &key_len, &index, 0, &pos);
           if (i == HASH_KEY_NON_EXISTENT) break;
           if (zend_hash_get_current_data_ex(ht, (void **) &data, &pos) == SUCCESS) {
-            write_string(encoder, key, key_len);
+            write_string(encoder, key, key_len - 1);
             write_data(encoder, *data, implicit, LEON_EMPTY);
           }
         }
@@ -808,6 +808,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
               oli_entry_push(entry, string_index_find(encoder->string_index, &zkey));
             }
           }
+          zend_hash_move_forward_ex(ht, &pos);
         }
         oli_entry_sort(entry);
         write_long(encoder, object_layout_index_find(encoder->object_layout_index, entry), encoder->object_layout_type);
@@ -816,6 +817,10 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
           write_data(encoder, *data, implicit, LEON_EMPTY);
         }
       } else {
+        i = zend_hash_num_elements(ht);
+        unsigned char type = integer_type_check((long) i);
+        smart_str_appendc(encoder->buffer, type);
+        write_long(encoder, (long) i, type);
         while (zend_hash_get_current_data_ex(ht, (void **) &data, &pos) == SUCCESS) {
           if (zend_hash_get_current_key_ex(ht, &key, &key_len, &index, 0, &pos) == HASH_KEY_IS_STRING) {
             if (zend_check_property_access(zobj, key, key_len-1 TSRMLS_CC) == SUCCESS) {
@@ -826,6 +831,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
               write_data(encoder, *data, implicit, LEON_EMPTY);
             }
           }
+          zend_hash_move_forward_ex(ht, &pos);
         }
       }
 #else
@@ -886,9 +892,9 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
     case LEON_REGEXP:
       ht = Z_OBJ_HT_P(payload)->get_properties(payload);
 #if PHP_API_VERSION <= 20131106
-      zend_hash_find(ht, "pattern", sizeof("pattern") - 1, (void **) &data);
+      zend_hash_find(ht, "pattern", sizeof("pattern"), (void **) &data);
       write_string(encoder, (*data)->value.str.val, (*data)->value.str.len);
-      zend_hash_find(ht, "modifier", sizeof("modifier") - 1, (void **) &data);
+      zend_hash_find(ht, "modifier", sizeof("modifier"), (void **) &data);
       write_string(encoder, (*data)->value.str.val, (*data)->value.str.len);
 #else
       key = zend_string_init("pattern", sizeof("pattern") - 1, 0);
@@ -902,7 +908,7 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
     case LEON_DATE:
       ht = Z_OBJ_HT_P(payload)->get_properties(payload);
 #if PHP_API_VERSION <= 20131106
-      zend_hash_find(ht, "timestamp", sizeof("timestamp") - 1, (void **) &data);
+      zend_hash_find(ht, "timestamp", sizeof("timestamp"), (void **) &data);
       write_double(encoder, (double) Z_LVAL_P(*data), LEON_DOUBLE);
 #else
       key = zend_string_init("timestamp", sizeof("timestamp") - 1, 0);

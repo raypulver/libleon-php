@@ -113,25 +113,17 @@ PHP_INI_END()
 /* {{{ proto string confirm_leon_compiled(string arg)
    Return a string to confirm that the module is compiled in */
 #if PHP_API_VERSION <= 20131106
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long64 options) {
+PHP_LEON_API void php_leon_encode(smart_str *buf, zval *payload, zend_long64 options) {
 #else
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long options) {
+PHP_LEON_API void php_leon_encode(smart_str *buf, zval *payload, zend_long options) {
 #endif
   leon_encoder_t *encoder = encoder_ctor();
-  smart_str buf = {0};
-  smart_str_free(&buf);
-  smart_str_0(&buf);
-  encoder->buffer = &buf;
+  encoder->buffer = buf;
   if (options & LEON_USE_INDEXING) {
     write_string_index(encoder, payload, 0);
     write_object_layout_index(encoder, payload, 0);
   }
   write_data(encoder, payload, 0, 0xFF);
-#if PHP_API_VERSION <= 20131106
-  ZVAL_STRINGL(return_value, encoder->buffer->c, encoder->buffer->len, 0);
-#else
-  ZVAL_STRINGL(return_value, encoder->buffer->s->val, encoder->buffer->s->len);
-#endif
   encoder_dtor(encoder);
 }
 #if PHP_API_VERSION <= 20131106
@@ -158,7 +150,16 @@ PHP_FUNCTION(leon_encode)
         zend_long options = 0;
 #endif
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|l", &payload, &options) == FAILURE) return;
-        php_leon_encode(return_value, payload, options);
+        smart_str buf = {0};
+        smart_str_free(&buf);
+        smart_str_0(&buf);
+        php_leon_encode(&buf, payload, options);
+#if PHP_API_VERSION <= 20131106
+        ZVAL_STRINGL(return_value, buf.c, buf.len, 0);
+#else
+        ZVAL_STRINGL(return_value, buf.s->val, buf.s->len);
+#endif
+        
 }
 PHP_FUNCTION(leon_decode)
 {

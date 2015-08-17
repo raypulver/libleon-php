@@ -9,16 +9,11 @@ PHP_METHOD(Date, __construct) {
   zval key;
   zval *value = (zval *) emalloc(sizeof(zval));
 #if PHP_API_VERSION <= 20131106
-  ZVAL_STRINGL(&key, "timestamp", sizeof("timestamp") - 1, 0);
+  add_property_long_ex(this, "timestamp", sizeof("timestamp"), timestamp);
 #else
   ZVAL_STRINGL(&key, "timestamp", sizeof("timestamp") - 1);
-#endif
   ZVAL_LONG(value, timestamp);
   Z_OBJ_HT_P(this)->write_property(this, &key, value, NULL);
-#if PHP_API_VERSION <= 20131106
-  zval *keyptr = &key;
-  zval_ptr_dtor(&keyptr);
-#else
   zval_ptr_dtor(&key);
 #endif
 }
@@ -31,29 +26,19 @@ PHP_METHOD(RegExp, __construct) {
     return;
   }
   zval *this = getThis();
+#if PHP_API_VERSION <= 20131106
+  add_property_stringl(this, "pattern", pattern, pattern_len, 1);
+  add_property_stringl(this, "modifier", modifier, modifier_len, 1);
+#else
   zval key;
   zval *value = (zval *) emalloc(sizeof(zval));
-#if PHP_API_VERSION <= 20131106
-  ZVAL_STRINGL(&key, "pattern", sizeof("pattern") - 1, 0);
-  ZVAL_STRINGL(value, pattern, pattern_len, 0);
-#else
   ZVAL_STRINGL(&key, "pattern", sizeof("pattern") - 1);
   ZVAL_STRINGL(value, pattern, pattern_len);
-#endif
   Z_OBJ_HT_P(this)->write_property(this, &key, value, NULL);
   value = (zval *) emalloc(sizeof(zval));
-#if PHP_API_VERSION <= 20131106
-  ZVAL_STRINGL(&key, "modifier", sizeof("modifier") - 1, 0);
-  ZVAL_STRINGL(value, modifier, modifier_len, 0);
-#else
   ZVAL_STRINGL(&key, "modifier", sizeof("modifier") - 1);
   ZVAL_STRINGL(value, modifier, modifier_len);
-#endif
   Z_OBJ_HT_P(this)->write_property(this, &key, value, NULL);
-#if PHP_API_VERSION <= 20131106
-  zval *keyptr = &key;
-  zval_ptr_dtor(&keyptr);
-#else
   zval_ptr_dtor(&key);
 #endif
 }

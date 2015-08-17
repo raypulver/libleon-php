@@ -126,28 +126,36 @@ double read_double(leon_parser_t *p, unsigned char t) {
   }
 }
 #if PHP_API_VERSION <= 20131106
-void *read_string(leon_parser_t *p, char **str, size_t *length) {
-#else
-zend_string *read_string(leon_parser_t *p) {
-#endif
+void *read_string(leon_parser_t *p, char **str, size_t *length, int terminate) {
   long len = read_varint(p, read_uint8(p));
-  char *buf = (char *) emalloc(sizeof(char)*len);
+  char *buf;
+  if (terminate) {
+    buf = (char *) emalloc(sizeof(char)*len + 1);
+    memset(buf, 0, sizeof(char)*len + 1);
+  } else {
+    buf = (char *) emalloc(sizeof(char)*len);
+    memset(buf, 0, sizeof(char)*len);
+  }
   memcpy(buf, p->payload + p->i, sizeof(char)*len);
-#if PHP_API_VERSION <= 20131106
   *str = buf;
   *length = (size_t) len;
   p->i += len;
+}
 #else
+zend_string *read_string(leon_parser_t *p) {
+  long len = read_varint(p, read_uint8(p));
+  char *buf = (char *) emalloc(sizeof(char)*len);
+  memcpy(buf, p->payload + p->i, sizeof(char)*len);
   zend_string *val = zend_string_init(buf, len, 0);
   p->i += len;
   efree(buf);
   return val;
-#endif
 }
+#endif
 void read_string_as_zval(leon_parser_t *p, zval *val) {
   long len = read_varint(p, read_uint8(p));
 #if PHP_API_VERSION <= 20131106
-  ZVAL_STRINGL(val, p->payload + p->i, len, 0);
+  ZVAL_STRINGL(val, p->payload + p->i, len, 1);
 #else
   ZVAL_STRINGL(val, p->payload + p->i, len);
 #endif
@@ -186,7 +194,6 @@ void parse_object_layout_index(leon_parser_t *p) {
     object_layout_index_push(p->object_layout_index, entry);
   }
 }
-void woop() {}
 void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
   unsigned char type = type_check(spec);
   long i;
@@ -241,14 +248,14 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
       type = read_uint8(p);
       len = read_varint(p, type);
       for (i = 0; i < len; ++i) {
+#if PHP_API_VERSION <= 20131106
+        zval *element;
+        MAKE_STD_ZVAL(element);
+        parse_value_with_spec(p, spec, element);
+        zend_hash_index_update(Z_ARRVAL_P(output), (unsigned int) i, &element, sizeof(zval *), (void **) &zv_dest);
+#else
         zval element;
         parse_value_with_spec(p, spec, &element);
-#if PHP_API_VERSION <= 20131106
-        add_index_zval(output, (unsigned int) i, &element);
-        tmp = &element;
-        zend_hash_index_update(Z_ARRVAL_P(output), (unsigned int) i, &tmp, sizeof(zval *), (void **) &zv_dest);
-        woop();
-#else
         add_index_zval(output, (unsigned int) i, &element);
 #endif
       }
@@ -273,9 +280,10 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
       }
       hash_array_sort(ha);
       for (i = 0; i < ha->len; ++i) {
-        zval element;
-        parse_value_with_spec(p, ha->index[i]->value, &element);
-        zend_hash_update(Z_ARRVAL_P(output), ha->index[i]->key, ha->index[i]->len, &element, sizeof(element), NULL);
+        zval *element;
+        MAKE_STD_ZVAL(element);
+        parse_value_with_spec(p, ha->index[i]->value, element);
+        zend_hash_update(Z_ARRVAL_P(output), ha->index[i]->key, ha->index[i]->len, &element, sizeof(zval *), NULL);
       }
       hash_array_dtor(ha);
 #else
@@ -356,9 +364,16 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       array_init(output);
       len = read_varint(p, read_uint8(p));
       for (i = 0; i < len; ++i) {
+#if PHP_API_VERSION <= 20131106
+        zval *element;
+        MAKE_STD_ZVAL(element);
+        parse_value(p, read_uint8(p), element);
+        zend_hash_index_update(Z_ARRVAL_P(output), (unsigned int) i, &element, sizeof(zval *), NULL);
+#else
         zval element;
         parse_value(p, read_uint8(p), &element);
         add_index_zval(output, (unsigned int) i, &element);
+#endif
       }
       break;
     case LEON_OBJECT:
@@ -368,19 +383,21 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
         long layout_idx = read_varint(p, p->object_layout_type);
         oli_entry *entry = p->object_layout_index->index[layout_idx];
         for (i = 0; i < entry->len; ++i) {
-          zval element;
-          parse_value(p, read_uint8(p), &element);
-          add_assoc_zval_ex(output, p->string_index->index[entry->entries[i]]->value.str.val, p->string_index->index[entry->entries[i]]->value.str.len, &element);
+          zval *element;
+          MAKE_STD_ZVAL(element);
+          parse_value(p, read_uint8(p), element);
+          add_assoc_zval_ex(output, p->string_index->index[entry->entries[i]]->value.str.val, p->string_index->index[entry->entries[i]]->value.str.len, element);
         }
       } else {
         long keys = read_varint(p, read_uint8(p));
         for (i = 0; i < keys; ++i) {
           char *key_name;
           size_t key_len;
-          read_string(p, &key_name, &key_len);
-          zval element;
-          parse_value(p, read_uint8(p), &element);
-          add_assoc_zval_ex(output, key_name, key_len, &element);
+          read_string(p, &key_name, &key_len, 1);
+          zval *element;
+          MAKE_STD_ZVAL(element);
+          parse_value(p, read_uint8(p), element);
+          add_assoc_zval_ex(output, key_name, key_len + 1, element);
           efree(key_name);
         }
       } 
@@ -408,15 +425,26 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
     case LEON_DATE:
       object_init_ex(output, date_ce);
       d = read_double(p, LEON_DOUBLE);
-      add_property_long_ex(output, "timestamp", sizeof("timestamp") - 1, (long) d);
+      add_property_long(output, "timestamp", (long) d);
       break;
     case LEON_REGEXP:
       object_init_ex(output, regexp_ce);
+#if PHP_API_VERSION <= 20131106
+      zval *pattern;
+      MAKE_STD_ZVAL(pattern);
+      read_string_as_zval(p, pattern);
+      add_property_zval(output, "pattern", pattern);
+      zval *modifier;
+      MAKE_STD_ZVAL(modifier);
+      read_string_as_zval(p, modifier);
+      add_property_zval(output, "modifier", modifier);
+#else
       zval str;
       read_string_as_zval(p, &str);
       add_property_zval_ex(output, "pattern", sizeof("pattern") - 1, &str);
       read_string_as_zval(p, &str);
       add_property_zval_ex(output, "modifier", sizeof("modifier") - 1, &str);
+#endif
       break;
     case LEON_BUFFER:
       object_init_ex(output, string_buffer_ce);
@@ -424,7 +452,7 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       sb = get_string_buffer(zend_objects_get_address(output));
       char *bufstr;
       size_t buflen;
-      read_string(p, &bufstr, &buflen);
+      read_string(p, &bufstr, &buflen, 0);
       sb->buffer->c = bufstr;
       sb->buffer->a = buflen;
       sb->buffer->len = buflen;

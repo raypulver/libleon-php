@@ -17,7 +17,6 @@ void hash_array_dtor(hash_array_t *p) {
   efree(p->index);
   efree(p);
 }
-
 void hash_array_push(hash_array_t *p, hash_entry *e) {
   if (p->a < p->len + 1) {
     p->a *= 2;

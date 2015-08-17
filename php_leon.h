@@ -20,6 +20,11 @@
 
 #ifndef PHP_LEON_H
 #define PHP_LEON_H
+#if PHP_API_VERSION <= 20131106
+#include "ext/standard/php_smart_str.h"
+#else
+#include "zend_smart_str.h"
+#endif
 
 extern zend_module_entry leon_module_entry;
 #define phpext_leon_ptr &leon_module_entry
@@ -70,10 +75,10 @@ ZEND_TSRMLS_CACHE_EXTERN();
  * vim<600: noet sw=4 ts=4
  */
 #if PHP_API_VERSION <= 20131106
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long64 options);
+PHP_LEON_API void php_leon_encode(smart_str *buf, zval *payload, zend_long64 options);
 PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long64 options);
 #else
-PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long options);
+PHP_LEON_API void php_leon_encode(smart_str *buf, zval *payload, zend_long options);
 PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long options);
 #endif
 

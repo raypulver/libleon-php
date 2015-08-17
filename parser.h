@@ -29,7 +29,7 @@ void read_string_as_zval(leon_parser_t *, zval *output);
 #if PHP_API_VERSION > 20131106
 zend_string *read_string(leon_parser_t *p);
 #else
-void *read_string(leon_parser_t *p, char **str, size_t *length);
+void *read_string(leon_parser_t *p, char **str, size_t *length, int terminate);
 #endif
 
 #endif
