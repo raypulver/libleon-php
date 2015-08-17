@@ -4,7 +4,11 @@
 #include "php.h"
 #include "zend.h"
 #include "zend_API.h"
+#if PHP_API_VERSION <= 20131106
+#include "ext/standard/php_smart_str.h"
+#else
 #include "zend_smart_str.h"
+#endif
 #include "zend_objects.h"
 
 extern zend_class_entry *string_buffer_ce;
@@ -18,7 +22,11 @@ typedef struct _string_buffer_t {
 } string_buffer_t;
 
 void string_buffer_free(string_buffer_t *intern TSRMLS_DC);
+#if PHP_API_VERSION <= 20131106
+zend_object_value string_buffer_create(zend_class_entry *ce TSRMLS_DC);
+#else
 zend_object *string_buffer_create(zend_class_entry *ce TSRMLS_DC);
+#endif
 void write_bytes(string_buffer_t *, unsigned char *, size_t, long, int);
 long normalize(string_buffer_t *, long, int);
 void stringbuffer_write_long(string_buffer_t *, long, long, unsigned char, int);

@@ -36,19 +36,27 @@ unsigned char type_check(zval *val) {
     case IS_NULL:
       return LEON_NULL;
       break;
+#if PHP_API_VERSION <= 20131106
+    case IS_BOOL:
+      return (Z_LVAL_P(val) ? LEON_TRUE : LEON_FALSE);
+      break;
+#else
     case IS_FALSE:
       return LEON_FALSE;
       break;
     case IS_TRUE:
       return LEON_TRUE;
       break;
+#endif
     case IS_STRING:
       return LEON_STRING;
       break;
+#if PHP_API_VERSION > 20131106
     case IS_REFERENCE:
       val = Z_REFVAL_P(val);
       return type_check(val);
       break;
+#endif
     case IS_OBJECT:
       if (instanceof_function(Z_OBJCE_P(val), undefined_ce)) return LEON_UNDEFINED;
       else if (instanceof_function(Z_OBJCE_P(val), date_ce)) return LEON_DATE;
@@ -63,8 +71,10 @@ unsigned char type_check(zval *val) {
       ht = Z_ARRVAL_P(val);
       return determine_array_type(ht);
       break;
+#if PHP_API_VERSION > 20131106
     case IS_INDIRECT:
       return LEON_INDIRECT;
+#endif
     case IS_CONSTANT:
     case IS_CONSTANT_AST:
       return LEON_CONSTANT;
@@ -74,6 +84,7 @@ unsigned char type_check(zval *val) {
   }
 }
 
+#if PHP_API_VERSION > 20131106
 unsigned char determine_array_type(HashTable *ht) {
   int i = ht ? zend_hash_num_elements(ht) : 0;
   if (i > 0) {
@@ -90,3 +101,31 @@ unsigned char determine_array_type(HashTable *ht) {
   }
   return LEON_ARRAY;
 }
+#else
+unsigned char determine_array_type(HashTable *ht) {
+  int i = ht ? zend_hash_num_elements(ht) : 0;
+  if (i > 0) {
+    char *key;
+    ulong index, idx;
+    uint key_len;
+    HashPosition pos;
+    zend_hash_internal_pointer_reset_ex(ht, &pos);
+    idx = 0;
+    for (;; zend_hash_move_forward_ex(ht, &pos)) {
+      i = zend_hash_get_current_key_ex(ht, &key, &key_len, &index, 0, &pos);
+      if (i == HASH_KEY_NON_EXISTENT) {
+        break;
+      }
+      if (i == HASH_KEY_IS_STRING) {
+        return LEON_OBJECT;
+      } else {
+        if (index != idx) {
+          return LEON_OBJECT;
+        }
+      }
+      idx++;
+    }
+  }
+  return LEON_ARRAY;
+}
+#endif

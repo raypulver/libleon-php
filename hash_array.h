@@ -3,11 +3,20 @@
 
 #include "php.h"
 
+#if PHP_API_VERSION <= 20131106
+typedef struct {
+  char *key;
+  uint len;
+  zend_ulong hash;
+  zval *value;
+} hash_entry;
+#else
 typedef struct {
   zend_string *key;
   zend_ulong hash;
   zval *value;
 } hash_entry;
+#endif
 
 typedef struct {
   hash_entry **index;

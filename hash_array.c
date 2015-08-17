@@ -27,11 +27,19 @@ void hash_array_push(hash_array_t *p, hash_entry *e) {
   p->len++;
 }
 
+#if PHP_API_VERSION <= 20131106
+static int hash_entry_cmp(const void *a, const void *b) {
+  if ((*((hash_entry **) a))->len < (*((hash_entry **) b))->len) { return -1; }
+  if ((*((hash_entry **) a))->len > (*((hash_entry **) b))->len) { return 1; }
+  else return memcmp((void *) (*((hash_entry **) a))->key, (void *) (*((hash_entry **) b))->key, (*((hash_entry **) a))->len);
+}
+#else
 static int hash_entry_cmp(const void *a, const void *b) {
   if ((*((hash_entry **) a))->key->len < (*((hash_entry **) b))->key->len) { return -1; }
   if ((*((hash_entry **) a))->key->len > (*((hash_entry **) b))->key->len) { return 1; }
   else return memcmp((void *) (*((hash_entry **) a))->key->val, (void *) (*((hash_entry **) b))->key->val, (*((hash_entry **) a))->key->len);
 }
+#endif
 void hash_array_sort(hash_array_t *p) {
   qsort(p->index, p->len, sizeof(hash_entry *), &hash_entry_cmp);
 }

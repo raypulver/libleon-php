@@ -2,7 +2,11 @@
 #define LEON_ENCODER_H
 
 #include <zend.h>
+#if PHP_API_VERSION <= 20131106
+#include "ext/standard/php_smart_str.h"
+#else
 #include "zend_smart_str.h"
+#endif
 #include "string_index.h"
 #include "object_layout_index.h"
 
@@ -24,7 +28,15 @@ void write_data(leon_encoder_t *encoder, zval *payload, int implicit, unsigned c
 void write_data_with_spec(leon_encoder_t *encoder, zval *spec, zval *payload);
 void write_long(leon_encoder_t *encoder, long value, unsigned char type);
 void write_double(leon_encoder_t *encoder, double d, unsigned char type);
+#if PHP_API_VERSION <= 20131106
+void write_zstr(leon_encoder_t *encoder, zval *str);
+#else
 void write_zstr(leon_encoder_t *encoder, zend_string *str);
+#endif
+#if PHP_API_VERSION <= 20131106
+void write_zstr_index(leon_encoder_t *encoder, zval *str);
+#else
 void write_zstr_index(leon_encoder_t *encoder, zend_string *str);
+#endif
 
 #endif

@@ -26,6 +26,10 @@ unsigned char read_uint8(leon_parser_t *p);
 void parse_value(leon_parser_t *p, unsigned char type, zval *output);
 void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output);
 void read_string_as_zval(leon_parser_t *, zval *output);
+#if PHP_API_VERSION > 20131106
 zend_string *read_string(leon_parser_t *p);
+#else
+void *read_string(leon_parser_t *p, char **str, size_t *length);
+#endif
 
 #endif

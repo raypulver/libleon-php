@@ -125,18 +125,32 @@ double read_double(leon_parser_t *p, unsigned char t) {
       break;
   }
 }
+#if PHP_API_VERSION <= 20131106
+void *read_string(leon_parser_t *p, char **str, size_t *length) {
+#else
 zend_string *read_string(leon_parser_t *p) {
+#endif
   long len = read_varint(p, read_uint8(p));
   char *buf = (char *) emalloc(sizeof(char)*len);
   memcpy(buf, p->payload + p->i, sizeof(char)*len);
+#if PHP_API_VERSION <= 20131106
+  *str = buf;
+  *length = (size_t) len;
+  p->i += len;
+#else
   zend_string *val = zend_string_init(buf, len, 0);
   p->i += len;
   efree(buf);
   return val;
+#endif
 }
 void read_string_as_zval(leon_parser_t *p, zval *val) {
   long len = read_varint(p, read_uint8(p));
+#if PHP_API_VERSION <= 20131106
+  ZVAL_STRINGL(val, p->payload + p->i, len, 0);
+#else
   ZVAL_STRINGL(val, p->payload + p->i, len);
+#endif
   p->i += len;
 } 
 void parse_string_index(leon_parser_t *p) {
@@ -148,7 +162,13 @@ void parse_string_index(leon_parser_t *p) {
   long string_count = read_varint(p, p->string_index_type);
   long i;
   for (i = 0; i < string_count; ++i) {
+#if PHP_API_VERSION <= 20131106
+    zval str;
+    read_string_as_zval(p, &str);
+    string_index_push(p->string_index, &str);
+#else
     string_index_push(p->string_index, read_string(p));
+#endif
   }
   p->state |= 0x1;
 }
@@ -166,19 +186,33 @@ void parse_object_layout_index(leon_parser_t *p) {
     object_layout_index_push(p->object_layout_index, entry);
   }
 }
+void woop() {}
 void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
   unsigned char type = type_check(spec);
   long i;
   long len;
   HashTable *ht;
   hash_entry *he;
-  zend_string *key;
   hash_array_t *ha;
+#if PHP_API_VERSION <= 20131106
+  HashPosition pos;
+  int j;
+  uint key_len;
+  char *key;
+  zval **data;
+  ulong index;
+  zval **zv_dest, *tmp;
+#else
+  zend_string *key;
   zval *data;
+#endif
   switch (type) {
+#if PHP_API_VERSION > 20131106
     case LEON_CONSTANT:
-      return parse_value_with_spec(p, &((zend_constant *) Z_PTR_P(spec))->value, output);
+      parse_value_with_spec(p, &((zend_constant *) Z_PTR_P(spec))->value, output);
+      return;
       break;
+#endif
     case LEON_UNSIGNED_CHAR:
       switch (Z_LVAL_P(spec)) {
         case LEON_BOOLEAN:
@@ -197,20 +231,54 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
       break;
     case LEON_ARRAY:
       ht = Z_ARRVAL_P(spec);
+#if PHP_API_VERSION <= 20131106
+      zend_hash_index_find(ht, 0, (void **) &data);
+      spec = *data;
+#else
       spec = zend_hash_index_find(ht, 0);
+#endif
       array_init(output);
       type = read_uint8(p);
       len = read_varint(p, type);
       for (i = 0; i < len; ++i) {
         zval element;
         parse_value_with_spec(p, spec, &element);
+#if PHP_API_VERSION <= 20131106
         add_index_zval(output, (unsigned int) i, &element);
+        tmp = &element;
+        zend_hash_index_update(Z_ARRVAL_P(output), (unsigned int) i, &tmp, sizeof(zval *), (void **) &zv_dest);
+        woop();
+#else
+        add_index_zval(output, (unsigned int) i, &element);
+#endif
       }
       break;
     case LEON_OBJECT:
       array_init(output);
       ht = Z_ARRVAL_P(spec);
       ha = hash_array_ctor();
+#if PHP_API_VERSION <= 20131106
+      zend_hash_internal_pointer_reset_ex(ht, &pos);
+      for (;; zend_hash_move_forward_ex(ht, &pos)) {
+        j = zend_hash_get_current_key_ex(ht, &key, &key_len, &index, 0, &pos);
+        if (j == HASH_KEY_NON_EXISTENT) break;
+        if (zend_hash_get_current_data_ex(ht, (void **) &data, &pos) == SUCCESS) {
+          he = (hash_entry *) emalloc(sizeof(hash_entry));
+          he->key = key;
+          he->len = key_len;
+          he->hash = index;
+          he->value = *data;
+          hash_array_push(ha, he);
+        }
+      }
+      hash_array_sort(ha);
+      for (i = 0; i < ha->len; ++i) {
+        zval element;
+        parse_value_with_spec(p, ha->index[i]->value, &element);
+        zend_hash_update(Z_ARRVAL_P(output), ha->index[i]->key, ha->index[i]->len, &element, sizeof(element), NULL);
+      }
+      hash_array_dtor(ha);
+#else
       ZEND_HASH_FOREACH_STR_KEY_VAL_IND(ht, key, data) {
         he = (hash_entry *) emalloc(sizeof(hash_entry));
         he->key = key;
@@ -224,11 +292,14 @@ void parse_value_with_spec(leon_parser_t *p, zval *spec, zval *output) {
         zend_hash_update(Z_ARRVAL_P(output), ha->index[i]->key, &element);
       }
       hash_array_dtor(ha);
+#endif
       break;
   }
 }
 void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
+#if PHP_API_VERSION > 20131106
   zend_string *buf;
+#endif
   string_buffer_t *sb;
   zval *data;
   long l, i, len;
@@ -252,8 +323,12 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       if (!(p->state & 0x1) || p->string_index_type == LEON_EMPTY) {
         read_string_as_zval(p, output);
       } else {
+#if PHP_API_VERSION <= 20131106
+        *output = *p->string_index->index[read_varint(p, p->string_index_type)];
+#else
         zend_string *val = p->string_index->index[read_varint(p, p->string_index_type)];
         ZVAL_NEW_STR(output, val);
+#endif
       }
       break;
     case LEON_FALSE:
@@ -288,6 +363,28 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       break;
     case LEON_OBJECT:
       array_init(output);
+#if PHP_API_VERSION <= 20131106
+      if (p->state & 0x1) {
+        long layout_idx = read_varint(p, p->object_layout_type);
+        oli_entry *entry = p->object_layout_index->index[layout_idx];
+        for (i = 0; i < entry->len; ++i) {
+          zval element;
+          parse_value(p, read_uint8(p), &element);
+          add_assoc_zval_ex(output, p->string_index->index[entry->entries[i]]->value.str.val, p->string_index->index[entry->entries[i]]->value.str.len, &element);
+        }
+      } else {
+        long keys = read_varint(p, read_uint8(p));
+        for (i = 0; i < keys; ++i) {
+          char *key_name;
+          size_t key_len;
+          read_string(p, &key_name, &key_len);
+          zval element;
+          parse_value(p, read_uint8(p), &element);
+          add_assoc_zval_ex(output, key_name, key_len, &element);
+          efree(key_name);
+        }
+      } 
+#else
       if (p->state & 0x1) {
         long layout_idx = read_varint(p, p->object_layout_type);
         oli_entry *entry = p->object_layout_index->index[layout_idx];
@@ -306,6 +403,7 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
           zend_string_release(key);
         }
       } 
+#endif
       break;
     case LEON_DATE:
       object_init_ex(output, date_ce);
@@ -322,10 +420,20 @@ void parse_value(leon_parser_t *p, unsigned char type, zval *output) {
       break;
     case LEON_BUFFER:
       object_init_ex(output, string_buffer_ce);
+#if PHP_API_VERSION <= 20131106
+      sb = get_string_buffer(zend_objects_get_address(output));
+      char *bufstr;
+      size_t buflen;
+      read_string(p, &bufstr, &buflen);
+      sb->buffer->c = bufstr;
+      sb->buffer->a = buflen;
+      sb->buffer->len = buflen;
+#else
       buf = read_string(p);
       sb = get_string_buffer(Z_OBJ_P(output));
       sb->buffer->s = buf;
       sb->buffer->a = buf->len;
+#endif
       break;
   }
 }

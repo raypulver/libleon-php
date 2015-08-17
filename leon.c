@@ -26,8 +26,11 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_leon.h"
+#if PHP_API_VERSION <= 20131106
+#include "ext/standard/php_smart_str.h"
+#else
 #include "zend_smart_str.h"
-
+#endif
 #include "types.h"
 #include "endianness.h"
 #include "encoder.h"
@@ -109,8 +112,11 @@ PHP_INI_END()
 /* Every user-visible function in PHP should document itself in the source */
 /* {{{ proto string confirm_leon_compiled(string arg)
    Return a string to confirm that the module is compiled in */
-
+#if PHP_API_VERSION <= 20131106
+PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long64 options) {
+#else
 PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long options) {
+#endif
   leon_encoder_t *encoder = encoder_ctor();
   smart_str buf = {0};
   smart_str_free(&buf);
@@ -121,10 +127,18 @@ PHP_LEON_API void php_leon_encode(zval *return_value, zval *payload, zend_long o
     write_object_layout_index(encoder, payload, 0);
   }
   write_data(encoder, payload, 0, 0xFF);
+#if PHP_API_VERSION <= 20131106
+  ZVAL_STRINGL(return_value, encoder->buffer->c, encoder->buffer->len, 0);
+#else
   ZVAL_STRINGL(return_value, encoder->buffer->s->val, encoder->buffer->s->len);
+#endif
   encoder_dtor(encoder);
 }
+#if PHP_API_VERSION <= 20131106
+PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long64 options)
+#else
 PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len, zend_long options)
+#endif
 {
         leon_parser_t *parser = parser_ctor(payload, len);
         if (options & LEON_USE_INDEXING) {
@@ -138,7 +152,11 @@ PHP_LEON_API void php_leon_decode(zval *return_value, char *payload, size_t len,
 PHP_FUNCTION(leon_encode)
 {
         zval *payload;
+#if PHP_API_VERSION <= 20131106
+        zend_long64 options = 0;
+#else
         zend_long options = 0;
+#endif
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|l", &payload, &options) == FAILURE) return;
         php_leon_encode(return_value, payload, options);
 }
@@ -146,7 +164,11 @@ PHP_FUNCTION(leon_decode)
 {
         char *payload;
         size_t len;
+#if PHP_API_VERSION <= 20131106
+        zend_long64 options = 0;
+#else
         zend_long options = 0;
+#endif
         if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|l", &payload, &len, &options) == FAILURE) return;
         php_leon_decode(return_value, payload, len, options);
 }
